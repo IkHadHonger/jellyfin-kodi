@@ -1,0 +1,50 @@
+name: Sync Jellyfin upstream
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: cube-custom
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/jellyfin/jellyfin-kodi.git
+          git fetch upstream master
+
+      - name: Update master from upstream
+        run: |
+          git checkout master
+          git reset --hard upstream/master
+          git push origin master --force-with-lease
+
+      - name: Merge upstream into cube-custom
+        run: |
+          git checkout cube-custom
+          git merge master --no-edit
+          git push origin cube-custom
+
+      - name: Summary
+        run: |
+          echo "## Jellyfin upstream sync" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Upstream: jellyfin/jellyfin-kodi:master" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Mirror: master" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Custom branch: cube-custom" >> "$GITHUB_STEP_SUMMARY"
