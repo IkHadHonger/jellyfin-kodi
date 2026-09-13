@@ -12,6 +12,9 @@ jobs:
   sync:
     runs-on: ubuntu-latest
 
+    outputs:
+      upstream_changed: ${{ steps.changes.outputs.changed }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,14 +31,35 @@ jobs:
         run: |
           git remote add upstream https://github.com/jellyfin/jellyfin-kodi.git
           git fetch upstream master
+          git fetch origin master
+
+      - name: Check for upstream changes
+        id: changes
+        shell: bash
+        run: |
+          LOCAL="$(git rev-parse origin/master)"
+          UPSTREAM="$(git rev-parse upstream/master)"
+
+          echo "Current master:  ${LOCAL}"
+          echo "Upstream master: ${UPSTREAM}"
+
+          if [ "${LOCAL}" = "${UPSTREAM}" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No upstream changes"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "New upstream changes detected"
+          fi
 
       - name: Update master from upstream
+        if: steps.changes.outputs.changed == 'true'
         run: |
           git checkout -B master origin/master
           git reset --hard upstream/master
           git push origin master --force-with-lease
 
       - name: Merge upstream into cube-custom
+        if: steps.changes.outputs.changed == 'true'
         run: |
           git checkout cube-custom
           git merge master --no-edit
@@ -48,3 +72,10 @@ jobs:
           echo "- Upstream: jellyfin/jellyfin-kodi:master" >> "$GITHUB_STEP_SUMMARY"
           echo "- Mirror: master" >> "$GITHUB_STEP_SUMMARY"
           echo "- Custom branch: cube-custom" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Changes detected: ${{ steps.changes.outputs.changed }}" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: sync
+    if: needs.sync.outputs.upstream_changed == 'true'
+    uses: ./.github/workflows/deploy-to-my-repo.yml
+    secrets: inherit
