@@ -31,7 +31,7 @@ jobs:
 
       - name: Update master from upstream
         run: |
-          git checkout master
+          git checkout -B master origin/master
           git reset --hard upstream/master
           git push origin master --force-with-lease
 
