@@ -23,6 +23,7 @@ from ..helper.utils import find_library
 from ..helper.exceptions import PathValidationException
 
 from .obj import Objects
+from .ratings import collect_source_ratings, sync_source_ratings
 from .kodi import TVShows as KodiDb, queries as QU
 
 ##################################################################################################
@@ -100,6 +101,9 @@ class TVShows(KodiDb):
                 )
 
         obj["Path"] = API.get_file_path(obj["Path"])
+        source_ratings = collect_source_ratings(
+            item, obj["Path"], "tvshow", self.direct_path
+        )
         obj["Genres"] = obj["Genres"] or []
         obj["People"] = obj["People"] or []
         obj["Mpaa"] = API.get_mpaa(obj["Mpaa"])
@@ -136,6 +140,8 @@ class TVShows(KodiDb):
             self.tvshow_update(obj)
         else:
             self.tvshow_add(obj)
+
+        sync_source_ratings(self.cursor, obj["ShowId"], "tvshow", source_ratings)
 
         self.link(*values(obj, QU.update_tvshow_link_obj))
         self.update_path(*values(obj, QU.update_path_tvshow_obj))
@@ -229,7 +235,11 @@ class TVShows(KodiDb):
     def tvshow_update(self, obj):
         """Update object to kodi."""
         obj["RatingId"] = self.get_rating_id(*values(obj, QU.get_unique_id_tvshow_obj))
-        self.update_ratings(*values(obj, QU.update_rating_tvshow_obj))
+        if obj["RatingId"] is None:
+            obj["RatingId"] = self.create_entry_rating()
+            self.add_ratings(*values(obj, QU.add_rating_tvshow_obj))
+        else:
+            self.update_ratings(*values(obj, QU.update_rating_tvshow_obj))
 
         obj["Unique"] = self.get_unique_id(*values(obj, QU.get_unique_id_tvshow_obj))
         self.update_unique_id(*values(obj, QU.update_unique_id_tvshow_obj))
@@ -382,6 +392,9 @@ class TVShows(KodiDb):
 
         obj["Path"] = API.get_file_path(obj["Path"])
         obj["Index"] = obj["Index"] or -1
+        source_ratings = collect_source_ratings(
+            item, obj["Path"], "episode", self.direct_path
+        )
         obj["Writers"] = " / ".join(obj["Writers"] or [])
         obj["Directors"] = " / ".join(obj["Directors"] or [])
         obj["Plot"] = API.get_overview(obj["Plot"])
@@ -432,6 +445,8 @@ class TVShows(KodiDb):
             self.episode_update(obj)
         else:
             self.episode_add(obj)
+
+        sync_source_ratings(self.cursor, obj["EpisodeId"], "episode", source_ratings)
 
         self.update_path(*values(obj, QU.update_path_episode_obj))
         self.update_file(*values(obj, QU.update_file_obj))
@@ -499,7 +514,11 @@ class TVShows(KodiDb):
     def episode_update(self, obj):
         """Update object to kodi."""
         obj["RatingId"] = self.get_rating_id(*values(obj, QU.get_rating_episode_obj))
-        self.update_ratings(*values(obj, QU.update_rating_episode_obj))
+        if obj["RatingId"] is None:
+            obj["RatingId"] = self.create_entry_rating()
+            self.add_ratings(*values(obj, QU.add_rating_episode_obj))
+        else:
+            self.update_ratings(*values(obj, QU.update_rating_episode_obj))
 
         obj["Unique"] = self.get_unique_id(*values(obj, QU.get_unique_id_episode_obj))
         self.update_unique_id(*values(obj, QU.update_unique_id_episode_obj))

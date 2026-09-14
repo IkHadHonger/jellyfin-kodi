@@ -21,6 +21,7 @@ from ..helper.utils import find_library
 from ..helper.exceptions import PathValidationException
 
 from .obj import Objects
+from .ratings import collect_source_ratings, sync_source_ratings
 from .kodi import Movies as KodiDb, queries as QU
 
 ##################################################################################################
@@ -86,6 +87,9 @@ class Movies(KodiDb):
                 )
 
         obj["Path"] = API.get_file_path(obj["Path"])
+        source_ratings = collect_source_ratings(
+            item, obj["Path"], "movie", self.direct_path
+        )
         obj["Genres"] = obj["Genres"] or []
         obj["Studios"] = [
             API.validate_studio(studio) for studio in (obj["Studios"] or [])
@@ -132,6 +136,8 @@ class Movies(KodiDb):
         else:
             self.movie_add(obj)
 
+        sync_source_ratings(self.cursor, obj["MovieId"], "movie", source_ratings)
+
         self.update_path(*values(obj, QU.update_path_movie_obj))
         self.update_file(*values(obj, QU.update_file_obj))
         self.add_tags(*values(obj, QU.add_tags_movie_obj))
@@ -172,7 +178,11 @@ class Movies(KodiDb):
     def movie_update(self, obj):
         """Update object to kodi."""
         obj["RatingId"] = self.get_rating_id(*values(obj, QU.get_rating_movie_obj))
-        self.update_ratings(*values(obj, QU.update_rating_movie_obj))
+        if obj["RatingId"] is None:
+            obj["RatingId"] = self.create_entry_rating()
+            self.add_ratings(*values(obj, QU.add_rating_movie_obj))
+        else:
+            self.update_ratings(*values(obj, QU.update_rating_movie_obj))
 
         obj["Unique"] = self.get_unique_id(*values(obj, QU.get_unique_id_movie_obj))
         self.update_unique_id(*values(obj, QU.update_unique_id_movie_obj))

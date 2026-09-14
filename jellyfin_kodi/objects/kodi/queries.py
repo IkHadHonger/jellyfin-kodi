@@ -124,6 +124,7 @@ SELECT      rating_id
 FROM        rating
 WHERE       media_type = ?
 AND         media_id = ?
+AND         rating_type = 'default'
 """
 get_rating_movie_obj = ["movie", "{MovieId}"]
 get_rating_episode_obj = ["episode", "{EpisodeId}"]
