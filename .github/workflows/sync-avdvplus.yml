@@ -1,0 +1,76 @@
+name: Sync AVDVPlus Jellyfin upstream
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "47 4 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    outputs:
+      upstream_changed: ${{ steps.changes.outputs.changed }}
+
+    steps:
+      - name: Checkout AVDVPlus branch
+        uses: actions/checkout@v4
+        with:
+          ref: avdvplus-custom
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream and mirror
+        run: |
+          git remote add upstream https://github.com/jellyfin/jellyfin-kodi.git
+          git fetch upstream master
+          git fetch origin master avdvplus-custom
+
+      - name: Check for upstream changes
+        id: changes
+        shell: bash
+        run: |
+          LOCAL="$(git rev-parse origin/master)"
+          UPSTREAM="$(git rev-parse upstream/master)"
+
+          if [ "${LOCAL}" = "${UPSTREAM}" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No upstream changes"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "New upstream changes detected"
+          fi
+
+      - name: Update mirror master
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git checkout -B master origin/master
+          git reset --hard upstream/master
+          git push origin master --force-with-lease
+
+      - name: Merge upstream into avdvplus-custom
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git checkout avdvplus-custom
+          git merge master --no-edit
+          git push origin avdvplus-custom
+
+      - name: Summary
+        run: |
+          echo "## AVDVPlus upstream sync" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Upstream: jellyfin/jellyfin-kodi:master" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Custom branch: avdvplus-custom" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Changes detected: ${{ steps.changes.outputs.changed }}" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: sync
+    if: needs.sync.outputs.upstream_changed == 'true'
+    uses: ./.github/workflows/deploy-avdvplus.yml
+    secrets: inherit
