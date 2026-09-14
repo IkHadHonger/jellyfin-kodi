@@ -87,6 +87,23 @@ class API(object):
 
             if "DvProfile" in track:
                 track["hdrtype"] = "dolbyvision"
+
+                dv_profile = track.get("DvProfile")
+                dv_compat = track.get("DvBlSignalCompatibilityId")
+                tags = self.item.get("Tags") or []
+
+                if dv_profile == 7:
+                    if "Dolby Vision FEL" in tags:
+                        track["dvprofile"] = "7FEL"
+                    elif "Dolby Vision MEL" in tags:
+                        track["dvprofile"] = "7MEL"
+                    else:
+                        track["dvprofile"] = "7"
+                elif dv_profile == 8 and dv_compat is not None:
+                    track["dvprofile"] = "{}.{}".format(dv_profile, dv_compat)
+                else:
+                    track["dvprofile"] = str(dv_profile)
+
             elif track.get("VideoRangeType", "") in ["HDR10", "HDR10Plus"]:
                 track["hdrtype"] = "hdr10"
             elif "HLG" in track.get("VideoRangeType", ""):
@@ -95,6 +112,7 @@ class API(object):
             track.update(
                 {
                     "hdrtype": track.get("hdrtype", "").lower(),
+                    "dvprofile": track.get("dvprofile", ""),
                     "codec": track.get("Codec", "").lower(),
                     "profile": track.get("Profile", "").lower(),
                     "height": track.get("Height"),
