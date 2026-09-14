@@ -1,0 +1,133 @@
+name: Deploy Jellyfin for AVDVPlus
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout avdvplus-custom
+        uses: actions/checkout@v4
+        with:
+          ref: avdvplus-custom
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml
+
+      - name: Create custom build version
+        id: metadata
+        shell: bash
+        run: |
+          python3 <<'EOF'
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path("release.yaml")
+          text = path.read_text(encoding="utf-8")
+          match = re.search(r"^version:\s*['\"]?([^'\"\n]+)['\"]?", text, re.MULTILINE)
+          if not match:
+              raise RuntimeError("Could not find version in release.yaml")
+
+          upstream_version = match.group(1).strip()
+          run_number = os.environ["GITHUB_RUN_NUMBER"]
+          custom_version = f"{upstream_version}.{run_number}"
+
+          text = re.sub(
+              r"^version:\s*['\"]?[^'\"\n]+['\"]?",
+              f"version: '{custom_version}'",
+              text,
+              count=1,
+              flags=re.MULTILINE,
+          )
+          path.write_text(text, encoding="utf-8")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"upstream_version={upstream_version}\n")
+              output.write(f"base_version={custom_version}\n")
+              output.write(f"addon_version={custom_version}+py3\n")
+          EOF
+
+      - name: Build Jellyfin addon
+        run: python build.py --version py3
+
+      - name: Verify build
+        run: |
+          test -f addon.xml
+          test -f plugin.video.jellyfin+py3.zip
+          grep '<addon ' addon.xml
+
+      - name: Prepare repository package
+        id: package
+        shell: bash
+        run: |
+          ADDON_ID="plugin.video.jellyfin"
+          VERSION="${{ steps.metadata.outputs.addon_version }}"
+          ZIP_NAME="${ADDON_ID}-${VERSION}.zip"
+          mv plugin.video.jellyfin+py3.zip "${ZIP_NAME}"
+          echo "zip_name=${ZIP_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Clone AVDVPlus repository branch
+        env:
+          REPO_PAT: ${{ secrets.REPO_SILVO_PAT }}
+        run: |
+          git clone \
+            --branch avdvplus-custom \
+            "https://x-access-token:${REPO_PAT}@github.com/IkHadHonger/repository.silvo.git" \
+            repo-silvo
+          cd repo-silvo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy Jellyfin to AVDVPlus channel
+        shell: bash
+        run: |
+          ADDON_ID="plugin.video.jellyfin"
+          ZIP_NAME="${{ steps.package.outputs.zip_name }}"
+          DEST="repo-silvo/avdvplus/${ADDON_ID}"
+
+          mkdir -p "${DEST}/resources"
+          rm -f "${DEST}/${ADDON_ID}-"*.zip
+          cp "${ZIP_NAME}" "${DEST}/"
+          cp addon.xml "${DEST}/addon.xml"
+          cp resources/icon.png "${DEST}/resources/icon.png"
+          cp resources/fanart.png "${DEST}/resources/fanart.png"
+
+      - name: Generate AVDVPlus repository metadata
+        run: |
+          cd repo-silvo
+          python3 _repo_generator.py avdvplus
+
+      - name: Commit and push repository
+        run: |
+          cd repo-silvo
+          git add avdvplus
+
+          if git diff --staged --quiet; then
+            echo "No repository changes"
+          else
+            git commit \
+              -m "Deploy AVDVPlus Jellyfin ${{ steps.metadata.outputs.addon_version }}" \
+              -m "Source: ${{ github.repository }}@avdvplus-custom"
+            git push origin avdvplus-custom
+          fi
+
+      - name: Summary
+        run: |
+          echo "## AVDVPlus Jellyfin deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: ${{ steps.metadata.outputs.addon_version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target: repository.silvo / avdvplus-custom / avdvplus" >> "$GITHUB_STEP_SUMMARY"
+          echo "- strDvProfile and FEL/MEL patch included" >> "$GITHUB_STEP_SUMMARY"
