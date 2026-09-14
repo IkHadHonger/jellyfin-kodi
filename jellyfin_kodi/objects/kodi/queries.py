@@ -265,8 +265,8 @@ add_bookmark_obj = [
 add_streams_obj = ["{FileId}", "{Streams}", "{Runtime}"]
 add_stream_video = """
 INSERT INTO     streamdetails(idFile, iStreamType, strVideoCodec, fVideoAspect, iVideoWidth,
-                iVideoHeight, iVideoDuration, strStereoMode, strHdrType)
-VALUES          (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                iVideoHeight, iVideoDuration, strStereoMode, strHdrType, strDvProfile)
+VALUES          (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 add_stream_video_obj = [
     "{FileId}",
@@ -278,6 +278,7 @@ add_stream_video_obj = [
     "{Runtime}",
     "{3d}",
     "{hdrtype}",
+    "{dvprofile}",
 ]
 # strHdrType is new to Kodi 20
 add_stream_video_19 = """
