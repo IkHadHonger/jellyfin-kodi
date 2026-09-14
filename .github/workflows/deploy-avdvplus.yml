@@ -92,6 +92,21 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Package dedicated AVDVPlus repository addon
+        shell: bash
+        run: |
+          REPO_ADDON="repository.ikhadhonger.avdvplus"
+          REPO_DIR="repo-silvo/avdvplus/${REPO_ADDON}"
+          REPO_VERSION="$(sed -n 's/.*version="\([^"]*\)".*/\1/p' "${REPO_DIR}/addon.xml" | head -n1)"
+          ZIP_PATH="${REPO_DIR}/${REPO_ADDON}-${REPO_VERSION}.zip"
+
+          rm -f "${REPO_DIR}/${REPO_ADDON}-"*.zip
+          (
+            cd "${REPO_DIR}"
+            zip -9 "${REPO_ADDON}-${REPO_VERSION}.zip" addon.xml
+          )
+          test -f "${ZIP_PATH}"
+
       - name: Deploy Jellyfin to AVDVPlus channel
         shell: bash
         run: |
