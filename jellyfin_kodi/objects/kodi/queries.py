@@ -847,7 +847,7 @@ SELECT          idFile,idMovie
 FROM            movie
 WHERE NOT EXISTS (
     SELECT NULL FROM videoversion
-    WHERE       videoversion.idMedia = movie.idMovie
+    WHERE       videoversion.idFile = movie.idFile
 )
 """
 get_version = """
