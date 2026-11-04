@@ -27,6 +27,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pyyaml
 
+      - name: Verify video version migration
+        run: |
+          python -m unittest tests.test_video_version_migration -v
+          python -m compileall -q jellyfin_kodi
+
       - name: Create custom build version
         id: metadata
         shell: bash
