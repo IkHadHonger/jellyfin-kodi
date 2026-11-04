@@ -54,7 +54,7 @@ jobs:
               raise RuntimeError("Could not find version in release.yaml")
 
           upstream_version = match.group(1).strip()
-          run_number = os.environ["GITHUB_RUN_NUMBER"]
+          run_number = os.environ["GITHUB_RUN_ID"]
 
           custom_version = f"{upstream_version}.{run_number}"
 
