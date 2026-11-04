@@ -37,15 +37,18 @@ jobs:
         id: changes
         shell: bash
         run: |
-          LOCAL="$(git rev-parse origin/master)"
           UPSTREAM="$(git rev-parse upstream/master)"
+          CUSTOM="$(git rev-parse avdvplus-custom)"
 
-          if [ "${LOCAL}" = "${UPSTREAM}" ]; then
+          echo "Upstream master: ${UPSTREAM}"
+          echo "AVDVPlus branch: ${CUSTOM}"
+
+          if git merge-base --is-ancestor upstream/master avdvplus-custom; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "No upstream changes"
+            echo "AVDVPlus branch already contains upstream master"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "New upstream changes detected"
+            echo "AVDVPlus branch is missing upstream changes"
           fi
 
       - name: Update mirror master
