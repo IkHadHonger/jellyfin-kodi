@@ -928,7 +928,7 @@ def on_play(data, server):
 
         return
 
-    if settings("useDirectPaths") == "1" or media == "song":
+    if settings("useDirectPaths.bool") or media == "song":
         from .. import database
 
         item = database.get_item(kodi_id, media)
@@ -946,7 +946,7 @@ def on_play(data, server):
             item["PlaybackInfo"] = {"Path": file}
             playutils.set_properties(
                 item,
-                "DirectStream" if settings("useDirectPaths") == "0" else "DirectPlay",
+                "DirectPlay" if settings("useDirectPaths.bool") else "DirectStream",
             )
 
 
