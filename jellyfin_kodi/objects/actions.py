@@ -928,7 +928,7 @@ def on_play(data, server):
 
         return
 
-    if settings("useDirectPaths.bool") or media == "song":
+    if not window("jellyfin_play.json") or media == "song":
         from .. import database
 
         item = database.get_item(kodi_id, media)
